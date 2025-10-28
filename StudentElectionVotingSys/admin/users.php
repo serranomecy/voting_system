@@ -89,6 +89,19 @@ if ($action === 'delete' && $user_id) {
     if ($user_id == $_SESSION['user_id']) {
         $error_message = 'You cannot delete your own account';
     } else {
+        // Delete from vote table first (child table)
+        $stmt = mysqli_prepare($conn, "DELETE FROM vote WHERE voter_id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $user_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        
+        // Delete from user_info (child table)
+        $stmt = mysqli_prepare($conn, "DELETE FROM user_info WHERE user_id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $user_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        
+        // Then delete from users (parent table)
         $stmt = mysqli_prepare($conn, "DELETE FROM users WHERE user_id = ?");
         mysqli_stmt_bind_param($stmt, 'i', $user_id);
         mysqli_stmt_execute($stmt);

@@ -195,7 +195,7 @@ try {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span><?php echo number_format($percentage, 1); ?>%</span>
                                             <div style="background: #e9ecef; border-radius: 5px; height: 8px; width: 100px;">
-                                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; border-radius: 5px; width: <?php echo $percentage; ?>%;"></div>
+                                                <div style="background:rgb(235, 228, 10) ; height: 100%; border-radius: 5px; width: <?php echo $percentage; ?>%;"></div>
                                             </div>
                                         </div>
                                     </td>

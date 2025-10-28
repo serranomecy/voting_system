@@ -172,6 +172,7 @@ body {
     font-size: 14px;
 }
 
+
 /* Alert Styles */
 .alert {
     padding: 15px;
@@ -519,5 +520,7 @@ body {
 .align-center { align-items: center; }
 .gap-1 { gap: 10px; }
 .gap-2 { gap: 20px; }
+
+
 
 

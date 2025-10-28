@@ -236,3 +236,5 @@ function initSearch() {
 document.addEventListener('DOMContentLoaded', initSearch);
 
 
+
+

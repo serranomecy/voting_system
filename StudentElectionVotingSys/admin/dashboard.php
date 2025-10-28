@@ -134,94 +134,74 @@ try {
         </div>
 
         <!-- Quick Actions -->
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <h3>Quick Actions</h3>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <a href="candidates.php?action=add" class="btn btn-primary">
-                        <i class="fas fa-user-plus"></i> Add Candidate
-                    </a>
-                    <a href="users.php?action=add" class="btn btn-success">
-                        <i class="fas fa-user-plus"></i> Add User
-                    </a>
-                    <a href="results.php" class="btn btn-warning">
-                        <i class="fas fa-chart-bar"></i> View Results
-                    </a>
-                </div>
-            </div>
 
-            <div class="dashboard-card">
-                <h3><i class="fas fa-info-circle"></i> Election Status</h3>
-                <div style="margin-bottom: 15px;">
-                    <strong>Voting Progress:</strong><br>
-                    <?php 
-                    $progress = $totalVoters > 0 ? ($totalVotes / $totalVoters) * 100 : 0;
-                    echo number_format($progress, 1) . '%';
-                    ?>
-                </div>
-                <div style="background: #e9ecef; border-radius: 5px; height: 10px;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                height: 100%; border-radius: 5px; width: <?php echo $progress; ?>%;"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Candidates -->
-        <div class="table-container">
-            <div class="table-header">
-                <h2><i class="fas fa-users"></i> Recent Candidates</h2>
-                <p>Latest candidates added to the system</p>
-            </div>
-
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Position</th>
-                        <th>Votes Received</th>
-                        <th>Platform</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($recentCandidates)): ?>
-                        <tr>
-                            <td colspan="5" class="text-center">
-                                No candidates found. <a href="candidates.php?action=add">Add the first candidate</a>
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($recentCandidates as $candidate): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></td>
-                                <td><?php echo htmlspecialchars($candidate['position']); ?></td>
-                                <td><?php echo (int)$candidate['vote_count']; ?></td>
-                                <td>
-                                    <?php if (!empty($candidate['platform_pdf'])): ?>
-                                        <a href="../<?php echo htmlspecialchars($candidate['platform_pdf']); ?>" target="_blank" class="btn btn-sm btn-secondary">
-                                            <i class="fa-solid fa-magnifying-glass"></i> View
-                                        </a>
-                                    <?php else: ?>
-                                        <span class="text-muted">No platform</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <a href="candidates.php?action=edit&id=<?php echo $candidate['candidate_id']; ?>" class="btn btn-sm btn-warning">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="candidates.php?action=delete&id=<?php echo $candidate['candidate_id']; ?>" 
-                                       onclick="return confirm('Are you sure you want to delete this candidate?')" 
-                                       class="btn btn-sm btn-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+<!-- Quick Actions -->
+<div class="dashboard-grid">
+    <div class="dashboard-card">
+        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
+            <a href="candidates.php?action=add" class="btn btn-primary" 
+               style="width: 200px; text-align: center;">
+                <i class="fas fa-user-plus"></i> Add Candidate
+            </a>
+            <a href="users.php?action=add" class="btn btn-success" 
+               style="width: 200px; text-align: center;">
+                <i class="fas fa-user-plus"></i> Add User
+            </a>
+            <a href="results.php" class="btn btn-warning" 
+               style="width: 200px; text-align: center;">
+                <i class="fas fa-chart-bar"></i> View Results
+            </a>
         </div>
     </div>
+</div> 
+
+<!-- Recent Candidates (new section BELOW) -->
+<div class="table-container" style="margin-top: 20px;">
+    <div class="table-header">
+        <h2><i class="fas fa-users"></i> Recent Candidates</h2>
+        <p>Latest candidates added to the system</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Votes</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($recentCandidates)): ?>
+                <tr>
+                    <td colspan="4" class="text-center">
+                        No candidates found. 
+                        <a href="candidates.php?action=add">Add the first candidate</a>
+                    </td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($recentCandidates as $candidate): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></td>
+                        <td><?php echo htmlspecialchars($candidate['position']); ?></td>
+                        <td><?php echo (int)$candidate['vote_count']; ?></td>
+                        <td>
+                            <a href="candidates.php?action=edit&id=<?php echo $candidate['candidate_id']; ?>" class="btn btn-sm btn-warning">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="candidates.php?action=delete&id=<?php echo $candidate['candidate_id']; ?>" 
+                               onclick="return confirm('Are you sure you want to delete this candidate?')" 
+                               class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
 
     <script src="../assets/js/main.js"></script>
     

@@ -174,12 +174,12 @@ if ($action === 'list') {
                         <?php else: ?>
                             <?php foreach ($candidates as $c): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?></td>
-                                    <td><?= htmlspecialchars($c['position']); ?></td>
-                                    <td><?= (int)$c['vote_count']; ?></td>
+                                    <td><?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($c['position']); ?></td>
+                                    <td><?php echo (int)$c['vote_count']; ?></td>
                                     <td>
                                         <?php if ($c['platform_pdf']): ?>
-                                            <a href="../<?= htmlspecialchars($c['platform_pdf']); ?>" target="_blank" class="btn btn-sm btn-secondary">
+                                            <a href="../<?php echo htmlspecialchars($c['platform_pdf']); ?>" target="_blank" class="btn btn-sm btn-secondary">
                                                 <i class="fa-solid fa-magnifying-glass"></i> View
                                             </a>
                                         <?php else: ?>
@@ -187,8 +187,8 @@ if ($action === 'list') {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                         <a href="candidates.php?action=edit&id=<?= $c['candidate_id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
-                                        <a href="candidates.php?action=delete&id=<?= $c['candidate_id']; ?>" onclick="return confirm('Are you sure you want to Delete this candidate?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                        <a href="candidates.php?action=edit&id=<?php echo $c['candidate_id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                        <a href="candidates.php?action=delete&id=<?php echo $c['candidate_id']; ?>" onclick="return confirm('Are you sure you want to delete this candidate?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

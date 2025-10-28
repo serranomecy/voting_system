@@ -1,8 +1,7 @@
 <?php
 session_start();
-require_once 'db.php'; // This should include your mysqli connection as $conn
+require_once 'db.php'; 
 
-// Redirect if already logged in
 if (isset($_SESSION['user_id'])) {
     if ($_SESSION['user_type'] === 'Admin') {
         header('Location: admin/dashboard.php');
@@ -118,5 +117,7 @@ $conn->close();
     <script src="assets/js/main.js"></script>
 </body>
 </html>
+
+
 
 

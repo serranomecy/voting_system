@@ -10,71 +10,82 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Voter') {
 
 $message = '';
 $error_message = '';
-$hasVoted = false;
+$voterPositions = [];
 
-// Check if user has already voted
-$sql = "SELECT COUNT(*) as vote_count FROM vote WHERE voter_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $_SESSION['user_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$hasVoted = $row['vote_count'] > 0;
-$stmt->close();
+// Get positions the voter has already voted for
+$stmt = mysqli_prepare($conn, "
+    SELECT DISTINCT c.position 
+    FROM vote v 
+    JOIN candidate c ON v.candidate_id = c.candidate_id 
+    WHERE v.voter_id = ?
+");
+mysqli_stmt_bind_param($stmt, 'i', $_SESSION['user_id']);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+while ($row = mysqli_fetch_assoc($result)) {
+    $voterPositions[] = $row['position'];
+}
+mysqli_stmt_close($stmt);
 
-// Handle vote submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$hasVoted) {
-    $candidate_id = $_POST['candidate_id'] ?? null;
+// Handle vote submission - allow one vote per position
+if ($_POST && isset($_POST['candidate_votes']) && is_array($_POST['candidate_votes'])) {
+    $candidateIds = $_POST['candidate_votes'];
+    $successCount = 0;
+    $errors = [];
     
-    if (!$candidate_id) {
-        $error_message = 'Please select a candidate to vote for';
-    } else {
-        // Check if candidate exists
-        $sql = "SELECT candidate_id FROM candidate WHERE candidate_id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $candidate_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
+    foreach ($candidateIds as $candidate_id) {
+        if (!is_numeric($candidate_id)) continue;
         
-        if ($result->num_rows === 0) {
-            $error_message = 'Invalid candidate selected';
-        } else {
-            // Record the vote
-            $sql = "INSERT INTO vote (voter_id, candidate_id) VALUES (?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ii", $_SESSION['user_id'], $candidate_id);
-            if ($stmt->execute()) {
-                $message = 'Your vote has been successfully recorded! Thank you for participating in the election.';
-                $hasVoted = true;
-            } else {
-                $error_message = 'Database error: Unable to record your vote.';
-            }
+        // Get candidate's position
+        $stmt = mysqli_prepare($conn, "SELECT position FROM candidate WHERE candidate_id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $candidate_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $candidate = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+        
+        if (!$candidate) continue;
+        
+        // Check if voter already voted for this position
+        if (in_array($candidate['position'], $voterPositions)) {
+            $errors[] = "Already voted for " . $candidate['position'];
+            continue;
         }
-        $stmt->close();
+        
+        // Record the vote
+        $stmt = mysqli_prepare($conn, "INSERT INTO vote (voter_id, candidate_id) VALUES (?, ?)");
+        mysqli_stmt_bind_param($stmt, 'ii', $_SESSION['user_id'], $candidate_id);
+        if (mysqli_stmt_execute($stmt)) {
+            $successCount++;
+            $voterPositions[] = $candidate['position'];
+        }
+        mysqli_stmt_close($stmt);
     }
-}
-
-// Get all candidates (if not yet voted)
-$candidates = [];
-if (!$hasVoted) {
-    $sql = "SELECT * FROM candidate ORDER BY position, first_name, last_name";
-    $result = $conn->query($sql);
-    if ($result) {
-        $candidates = $result->fetch_all(MYSQLI_ASSOC);
+    
+    if ($successCount > 0) {
+        $message = "Thank you for voting! Successfully recorded vote(s) for $successCount position(s).";
+    } else if (!empty($errors)) {
+        $error_message = implode(', ', $errors);
     } else {
-        $error_message = 'Database error while loading candidates.';
+        $error_message = 'Unable to record votes.';
     }
 }
 
-// Get user info
-$user_info = null;
-$sql = "SELECT ui.* FROM user_info ui WHERE ui.user_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $_SESSION['user_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-$user_info = $result->fetch_assoc();
-$stmt->close();
+// Get all candidates grouped by position
+$candidatesByPosition = [];
+$query = "SELECT * FROM candidate ORDER BY position, first_name, last_name";
+$result = mysqli_query($conn, $query);
+if ($result) {
+    while ($candidate = mysqli_fetch_assoc($result)) {
+        $position = $candidate['position'];
+        if (!isset($candidatesByPosition[$position])) {
+            $candidatesByPosition[$position] = [];
+        }
+        $candidatesByPosition[$position][] = $candidate;
+    }
+}
+
+$allPositionsVoted = count($voterPositions) >= count($candidatesByPosition);
 ?>
 
 <!DOCTYPE html>
@@ -87,12 +98,10 @@ $stmt->close();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="dashboard-container">
-    <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="navbar-content">
             <a href="vote.php" class="navbar-brand">
-                <i class="fas fa-vote-yea"></i>
-                Student Election System
+                <i class="fas fa-vote-yea"></i> Student Election System
             </a>
             
             <div class="navbar-user">
@@ -104,11 +113,10 @@ $stmt->close();
         </div>
     </nav>
 
-    <!-- Main Content -->
     <div class="main-content">
         <div class="page-header">
             <h1><i class="fas fa-vote-yea"></i> Cast Your Vote</h1>
-            <p>Select your preferred candidate for each position.</p>
+            <p>Select one candidate per position.</p>
         </div>
 
         <?php if ($message): ?>
@@ -125,15 +133,13 @@ $stmt->close();
             </div>
         <?php endif; ?>
 
-        <?php if ($hasVoted): ?>
-            <!-- Already Voted -->
+        <?php if ($allPositionsVoted): ?>
             <div class="form-container text-center">
                 <div style="font-size: 4rem; color: #28a745; margin-bottom: 20px;">
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <h2>Thank You for Voting!</h2>
-                <p>You have already cast your vote in this election.</p>
-                <p>Your participation is important for our democratic process.</p>
+                <p>You have voted for all positions.</p>
                 
                 <div style="margin-top: 30px;">
                     <a href="../logout.php" class="btn btn-primary">
@@ -141,60 +147,62 @@ $stmt->close();
                     </a>
                 </div>
             </div>
-            
         <?php else: ?>
-            <!-- Voting Interface -->
-            <?php if (empty($candidates)): ?>
+            <?php if (empty($candidatesByPosition)): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    No candidates are available for voting at this time. Please contact the administrator.
+                    No candidates are available for voting at this time.
                 </div>
             <?php else: ?>
                 <form method="POST" id="votingForm">
-                    <input type="hidden" name="candidate_id" id="selectedCandidate" required>
-                    
                     <div class="voting-container">
-                        <?php 
-                        $current_position = '';
-                        foreach ($candidates as $candidate): 
-                            if ($current_position !== $candidate['position']):
-                                if ($current_position !== '') {
-                                    echo '</div>'; // close previous
-                                }
-                                $current_position = $candidate['position'];
+                        <?php foreach ($candidatesByPosition as $position => $candidates): 
+                            $alreadyVoted = in_array($position, $voterPositions);
                         ?>
-                            <div class="position-group" style="margin-bottom: 30px;">
-                                <h2 style="color: black; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef;">
-                                    <i class="fas fa-briefcase"></i> <?php echo htmlspecialchars($candidate['position']); ?>
-                                </h2>
-                        <?php endif; ?>
-                        
-                        <div class="candidate-card" data-candidate-id="<?php echo $candidate['candidate_id']; ?>">
-                            <div class="d-flex justify-between align-center">
-                                <div>
-                                    <h3><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></h3>
-                                    <p class="position"><?php echo htmlspecialchars($candidate['position']); ?></p>
-                                    
-                                    <?php if (!empty($candidate['platform_pdf'])): ?>
-                                        <a href="../<?php echo htmlspecialchars($candidate['platform_pdf']); ?>" 
-                                           target="_blank" class="btn btn-sm btn-secondary">
-                                            <i class="fa-solid fa-magnifying-glass"></i> View Platform
-                                        </a>
+                            <div class="position-group" style="margin-bottom: 30px; <?php echo $alreadyVoted ? 'opacity: 0.6;' : ''; ?>">
+                                <h2 style="color:black; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef;">
+                                    <i class="fas fa-briefcase"></i> <?php echo htmlspecialchars($position); ?>
+                                    <?php if ($alreadyVoted): ?>
+                                        <span style="color: #28a745; font-size: 0.8em; margin-left: 10px;">✓ Voted</span>
                                     <?php endif; ?>
-                                </div>
+                                </h2>
                                 
-                                <div class="vote-indicator" style="font-size: 2rem; color: #e9ecef;">
-                                    <i class="fas fa-circle"></i>
-                                </div>
+                                <?php foreach ($candidates as $candidate): ?>
+                                    <div class="candidate-card <?php echo $alreadyVoted ? 'disabled' : ''; ?>" 
+                                         data-candidate-id="<?php echo $candidate['candidate_id']; ?>" 
+                                         data-position="<?php echo htmlspecialchars($position); ?>"
+                                         <?php if ($alreadyVoted): ?>style="pointer-events: none;"<?php endif; ?>>
+                                        <div class="d-flex justify-between align-center">
+                                            <div>
+                                                <h3><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></h3>
+                                                
+                                                <?php if (!empty($candidate['platform_pdf'])): ?>
+                                                    <a href="../<?php echo htmlspecialchars($candidate['platform_pdf']); ?>" 
+                                                       target="_blank" class="btn btn-sm btn-secondary">
+                                                        <i class="fas fa-file-pdf"></i> View Platform
+                                                    </a>
+                                                <?php endif; ?>
+                                            </div>
+                                            
+                                            <div class="vote-indicator" style="font-size: 2rem; color: #e9ecef;">
+                                                <i class="fas fa-circle"></i>
+                                            </div>
+                                        </div>
+                                        <?php if (!$alreadyVoted): ?>
+                                            <input type="checkbox" 
+                                                   name="candidate_votes[]" 
+                                                   value="<?php echo $candidate['candidate_id']; ?>" 
+                                                   style="display: none;"
+                                                   class="candidate-checkbox">
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
-                        </div>
-                        
                         <?php endforeach; ?>
-                        <?php if ($current_position !== '') echo '</div>'; ?>
                     </div>
                     
                     <div class="text-center" style="margin-top: 30px;">
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitVote" disabled>
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitVote">
                             <i class="fas fa-vote-yea"></i> Submit Vote
                         </button>
                     </div>
@@ -203,38 +211,49 @@ $stmt->close();
         <?php endif; ?>
     </div>
 
-    <script src="assets/js/main.js"></script>
+    <script src="../assets/js/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const candidateCards = document.querySelectorAll('.candidate-card');
+            const candidateCards = document.querySelectorAll('.candidate-card:not(.disabled)');
             const submitButton = document.getElementById('submitVote');
-            const selectedCandidateInput = document.getElementById('selectedCandidate');
             
             candidateCards.forEach(card => {
                 card.addEventListener('click', function() {
-                    const position = this.querySelector('.position').textContent;
-                    const allCardsInPosition = Array.from(candidateCards).filter(c => 
-                        c.querySelector('.position').textContent === position
-                    );
+                    const position = this.dataset.position;
+                    const checkboxes = this.querySelectorAll('.candidate-checkbox');
                     
-                    allCardsInPosition.forEach(c => {
-                        c.classList.remove('selected');
-                        c.querySelector('.vote-indicator i').className = 'fas fa-circle';
-                        c.querySelector('.vote-indicator').style.color = '#e9ecef';
+                    // Unselect other candidates in the same position
+                    const samePosition = document.querySelectorAll(`[data-position="${position}"]`);
+                    samePosition.forEach(c => {
+                        if (!c.classList.contains('disabled')) {
+                            c.classList.remove('selected');
+                            c.querySelector('.vote-indicator i').className = 'fas fa-circle';
+                            c.querySelector('.vote-indicator').style.color = '#e9ecef';
+                            const cb = c.querySelector('.candidate-checkbox');
+                            if (cb) cb.checked = false;
+                        }
                     });
                     
+                    // Select this candidate
                     this.classList.add('selected');
                     this.querySelector('.vote-indicator i').className = 'fas fa-check-circle';
                     this.querySelector('.vote-indicator').style.color = '#28a745';
-                    
-                    selectedCandidateInput.value = this.dataset.candidateId;
-                    submitButton.disabled = false;
+                    const checkbox = this.querySelector('.candidate-checkbox');
+                    if (checkbox) checkbox.checked = true;
                 });
             });
-            
+
             document.getElementById('votingForm').addEventListener('submit', function(e) {
-                if (!confirm('Are you sure you want to submit your vote? This action cannot be undone.')) {
+                const selected = document.querySelectorAll('.candidate-checkbox:checked');
+                if (selected.length === 0) {
                     e.preventDefault();
+                    alert('Please select at least one candidate');
+                    return false;
+                }
+                
+                if (!confirm('Are you sure you want to submit your votes? This action cannot be undone.')) {
+                    e.preventDefault();
+                    return false;
                 }
             });
         });
