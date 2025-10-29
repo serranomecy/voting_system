@@ -11,7 +11,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 $message = '';
 $error_message = '';
 
-// Get election results
 try {
     // Get vote counts by candidate
     $query = "
@@ -37,8 +36,11 @@ try {
     $row = mysqli_fetch_assoc($result);
     $totalVoters = $row['total'];
 
-    // Get voting statistics
-    $votingRate = $totalVoters > 0 ? ($totalVotes / $totalVoters) * 100 : 0;
+    // ✅ Get total positions (unique positions from candidates)
+    $query = "SELECT COUNT(DISTINCT position) AS total FROM candidate";
+    $result = mysqli_query($conn, $query);
+    $row = mysqli_fetch_assoc($result);
+    $totalPositions = $row['total'];
 
     // Group results by position
     $resultsByPosition = [];
@@ -85,10 +87,10 @@ try {
             </a>
             
             <ul class="navbar-nav">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="candidates.php">Candidates</a></li>
-                <li><a href="users.php">Users</a></li>
-                <li><a href="results.php" class="active">Results</a></li>
+                <li><i class="fa-solid fa-gauge-high"></i> <a href="dashboard.php">Dashboard</a></li>
+                <li><i class="fas fa-users"></i> <a href="candidates.php">Candidates</a></li>
+                <li><i class="fas fa-user-plus"></i> <a href="users.php">Users</a></li>
+                <li><i class="fas fa-chart-bar"></i> <a href="results.php" class="active">Results</a></li>
             </ul>
             
             <div class="navbar-user">
@@ -99,10 +101,12 @@ try {
             </div>
         </div>
     </nav>
+
+    <!-- Date and Time -->
     <div style="padding: 8px 20px; font-weight: 500; color:gray; text-align: right;">
-    <i class="fas fa-calendar-alt"></i>
-    <span id="currentDateTime"><?php echo date('M d, Y | g:i A'); ?></span>
-</div>
+        <i class="fas fa-calendar-alt"></i>
+        <span id="currentDateTime"><?php echo date('M d, Y | g:i A'); ?></span>
+    </div>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -131,11 +135,12 @@ try {
                 <div class="stat-number"><?php echo $totalVoters; ?></div>
                 <div class="stat-label">Registered voters</div>
             </div>
-            
+
+            <!-- ✅ Replaced Voting Rate with Total Positions -->
             <div class="dashboard-card">
-                <h3><i class="fas fa-percentage"></i> Voting Rate</h3>
-                <div class="stat-number"><?php echo number_format($votingRate, 1); ?>%</div>
-                <div class="stat-label">Participation rate</div>
+                <h3><i class="fas fa-briefcase"></i> Total Positions</h3>
+                <div class="stat-number"><?php echo $totalPositions; ?></div>
+                <div class="stat-label">Positions available</div>
             </div>
             
             <div class="dashboard-card">
@@ -145,7 +150,7 @@ try {
             </div>
         </div>
 
-        <!-- results -->
+        <!-- Results Table -->
         <?php if (empty($resultsByPosition)): ?>
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i>
@@ -195,7 +200,7 @@ try {
                                         <div style="display: flex; align-items: center; gap: 10px;">
                                             <span><?php echo number_format($percentage, 1); ?>%</span>
                                             <div style="background: #e9ecef; border-radius: 5px; height: 8px; width: 100px;">
-                                                <div style="background:rgb(235, 228, 10) ; height: 100%; border-radius: 5px; width: <?php echo $percentage; ?>%;"></div>
+                                                <div style="background: rgb(235, 228, 10); height: 100%; border-radius: 5px; width: <?php echo $percentage; ?>%;"></div>
                                             </div>
                                         </div>
                                     </td>
@@ -217,7 +222,7 @@ try {
             <?php endforeach; ?>
         <?php endif; ?>
 
-        <!-- votes-->
+        <!-- Recent Votes -->
         <?php if (!empty($recentVotes)): ?>
             <div class="table-container">
                 <div class="table-header">

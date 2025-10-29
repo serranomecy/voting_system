@@ -119,10 +119,10 @@ if ($action === 'list') {
                 <i class="fas fa-vote-yea"></i> Student Election Voting System
             </a>
             <ul class="navbar-nav">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="candidates.php" class="active">Candidates</a></li>
-                <li><a href="users.php">Users</a></li>
-                <li><a href="results.php">Results</a></li>
+                <li><i class="fa-solid fa-gauge-high"></i> <a href="dashboard.php">Dashboard</a></li>
+                <li><i class="fas fa-users"></i> <a href="candidates.php" class="active">Candidates</a></li>
+                <li><i class="fas fa-user-plus"></i> <a href="users.php">Users</a></li>
+                <li><i class="fas fa-chart-bar"></i> <a href="results.php">Results</a></li>
             </ul>
             <div class="navbar-user">
                 <span style="margin-right: 15px;"><i class="fas fa-user-shield"></i> <?php echo htmlspecialchars($_SESSION['email']); ?></span>

@@ -142,8 +142,8 @@ $allPositionsVoted = count($voterPositions) >= count($candidatesByPosition);
                 <p>You have voted for all positions.</p>
                 
                 <div style="margin-top: 30px;">
-                    <a href="../logout.php" class="btn btn-primary">
-                        <i class="fas fa-sign-out-alt"></i> Logout
+                    <a href="../viewballot.php" class="btn btn-primary">
+                        <i class="fas fa-sign-out-alt"></i> View Ballot
                     </a>
                 </div>
             </div>
