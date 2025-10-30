@@ -11,8 +11,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 $error_message = '';
 
 // Dashboard statistics
-$totalCandidates = $totalVoters = $totalVotes = $remainingVoters = 0;
-$recentCandidates = [];
+$totalCandidates = $totalVoters = $totalPositions = $remainingVoters = 0;
+$recentCandidatesByPosition = [];
 
 try {
     // Total candidates
@@ -23,7 +23,11 @@ try {
     $result = mysqli_query($conn, "SELECT COUNT(*) AS total FROM users WHERE user_type_id = 2");
     $totalVoters = mysqli_fetch_assoc($result)['total'] ?? 0;
 
-  
+    // ✅ Get total positions (unique positions from candidates)
+    $query = "SELECT COUNT(DISTINCT position) AS total FROM candidate";
+    $result = mysqli_query($conn, $query);
+    $row = mysqli_fetch_assoc($result);
+    $totalPositions = $row['total'];
 
     // Voters who haven't voted yet
     $sqlRemaining = "
@@ -35,19 +39,48 @@ try {
     $result = mysqli_query($conn, $sqlRemaining);
     $remainingVoters = mysqli_fetch_assoc($result)['total'] ?? 0;
 
-    // Recent candidates
+    // Recent candidates - Gets the 10 newest candidates overall, then grouped by position
+    // Positions ordered by first appearance, newest candidates at bottom of each group
     $sqlRecent = "
-        SELECT c.*, COUNT(v.vote_id) AS vote_count
+        SELECT c.*, COUNT(v.vote_id) AS vote_count,
+               (SELECT MIN(c2.candidate_id) FROM candidate c2 WHERE c2.position = c.position) AS position_first_id
         FROM candidate c
         LEFT JOIN vote v ON c.candidate_id = v.candidate_id
         GROUP BY c.candidate_id
         ORDER BY c.candidate_id DESC
-        LIMIT 5
+        LIMIT 10
     ";
     $result = mysqli_query($conn, $sqlRecent);
+    $allRecentCandidates = [];
+    $positionOrder = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        $recentCandidates[] = $row;
+        $allRecentCandidates[] = $row;
+        $position = $row['position'];
+        if (!isset($positionOrder[$position])) {
+            $positionOrder[$position] = $row['position_first_id'];
+        }
     }
+    
+    // Group by position - preserve order as encountered (newest positions last)
+    foreach ($allRecentCandidates as $row) {
+        $position = $row['position'];
+        if (!isset($recentCandidatesByPosition[$position])) {
+            $recentCandidatesByPosition[$position] = [];
+        }
+        $recentCandidatesByPosition[$position][] = $row;
+    }
+    
+    // Sort candidates within each position by candidate_id ASC (newest at bottom)
+    foreach ($recentCandidatesByPosition as $position => $candidates) {
+        usort($recentCandidatesByPosition[$position], function($a, $b) {
+            return $a['candidate_id'] <=> $b['candidate_id'];
+        });
+    }
+    
+    // Sort positions by their first appearance order (newest positions at bottom)
+    uksort($recentCandidatesByPosition, function($a, $b) use ($positionOrder) {
+        return $positionOrder[$a] <=> $positionOrder[$b];
+    });
 
 } catch (Exception $e) {
     $error_message = "Database error: " . $e->getMessage();
@@ -67,9 +100,7 @@ try {
     <!-- NavBar -->
        <nav class="navbar">
         <div class="navbar-content">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-vote-yea"></i> Student Election Voting System
-            </a>
+            <a href="dashboard.php" class="navbar-brand"> Student Election Voting System</a>
             <ul class="navbar-nav">
                 <li><i class="fa-solid fa-gauge-high"></i> <a href="dashboard.php">Dashboard</a></li>
                 <li><i class="fas fa-users"></i> <a href="candidates.php" class="active">Candidates</a></li>
@@ -123,8 +154,8 @@ try {
             </div>
 
             <div class="dashboard-card">
-                <h3><i class="fas fa-vote-yea"></i> Votes Cast</h3>
-                <div class="stat-number"><?php echo $totalVotes; ?></div>
+                <h3><i class="fas fa-vote-yea"></i> Total Positions</h3>
+                <div class="stat-number"><?php echo $totalPositions; ?></div>
                 <div class="stat-label">Total votes submitted</div>
             </div>
 
@@ -166,14 +197,14 @@ try {
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Name</th>
                         <th>Position</th>
+                        <th>Name</th>
                         <th>Votes</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($recentCandidates)): ?>
+                    <?php if (empty($recentCandidatesByPosition)): ?>
                         <tr>
                             <td colspan="4" class="text-center">
                                 No candidates found. 
@@ -181,23 +212,29 @@ try {
                             </td>
                         </tr>
                     <?php else: ?>
-                        <?php foreach ($recentCandidates as $candidate): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></td>
-                                <td><?php echo htmlspecialchars($candidate['position']); ?></td>
-                                <td><?php echo (int)$candidate['vote_count']; ?></td>
-                                <td>
-                                    <a href="candidates.php?action=edit&id=<?php echo $candidate['candidate_id']; ?>" 
-                                       class="btn btn-sm btn-warning">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="candidates.php?action=delete&id=<?php echo $candidate['candidate_id']; ?>" 
-                                       onclick="return confirm('Are you sure you want to delete this candidate?')" 
-                                       class="btn btn-sm btn-danger">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </td>
-                            </tr>
+                        <?php foreach ($recentCandidatesByPosition as $position => $candidates): ?>
+                            <?php foreach ($candidates as $index => $candidate): ?>
+                                <tr <?php if ($index === 0): ?><?php endif; ?>>
+                                    <?php if ($index === 0): ?>
+                                        <td rowspan="<?php echo count($candidates); ?>" style=" vertical-align: middle; font-weight: bold; background-color: #f8f9fa; width: 200px;">
+                                            <?php echo htmlspecialchars($position); ?>
+                                        </td>
+                                    <?php endif; ?>
+                                    <td><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></td>
+                                    <td><?php echo (int)$candidate['vote_count']; ?></td>
+                                    <td>
+                                        <a href="candidates.php?action=edit&id=<?php echo $candidate['candidate_id']; ?>" 
+                                           class="btn btn-sm btn-warning">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="candidates.php?action=delete&id=<?php echo $candidate['candidate_id']; ?>" 
+                                           onclick="return confirm('Are you sure you want to delete this candidate?')" 
+                                           class="btn btn-sm btn-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>

@@ -170,9 +170,7 @@ if ($result) {
     <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="navbar-content">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-vote-yea"></i> Student Election Voting System
-            </a>
+            <a href="dashboard.php" class="navbar-brand">Student Election Voting System </a>
             
             <ul class="navbar-nav">
                 <li><i class="fa-solid fa-gauge-high"></i> <a href="dashboard.php">Dashboard</a></li>

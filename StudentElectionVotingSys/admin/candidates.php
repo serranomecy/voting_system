@@ -83,22 +83,35 @@ if ($action === 'edit' && $candidate_id) {
     }
 }
 
-// Get all candidates for listing
-$candidates = [];
+// Get all candidates for listing - grouped by position, with newest positions at bottom
+// Positions ordered by first appearance (min candidate_id), newest candidates at bottom of each group
+$candidatesByPosition = [];
+$positionOrder = []; // Track order of positions by first appearance
 if ($action === 'list') {
     $sql = "
-        SELECT c.*, COUNT(v.vote_id) AS vote_count 
+        SELECT c.*, COUNT(v.vote_id) AS vote_count,
+               (SELECT MIN(c2.candidate_id) FROM candidate c2 WHERE c2.position = c.position) AS position_first_id
         FROM candidate c 
         LEFT JOIN vote v ON c.candidate_id = v.candidate_id 
         GROUP BY c.candidate_id 
-        ORDER BY c.candidate_id DESC
+        ORDER BY position_first_id ASC, c.candidate_id ASC
     ";
     $result = mysqli_query($conn, $sql);
     if ($result) {
         while ($row = mysqli_fetch_assoc($result)) {
-            $candidates[] = $row;
+            $position = $row['position'];
+            if (!isset($candidatesByPosition[$position])) {
+                $candidatesByPosition[$position] = [];
+                $positionOrder[$position] = $row['position_first_id'];
+            }
+            $candidatesByPosition[$position][] = $row;
         }
         mysqli_free_result($result);
+        
+        // Sort positions by their first appearance order
+        uksort($candidatesByPosition, function($a, $b) use ($positionOrder) {
+            return $positionOrder[$a] <=> $positionOrder[$b];
+        });
     }
 }
 ?>
@@ -107,7 +120,7 @@ if ($action === 'list') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candidate Management - Student Election Voting System</title>
+    <title>Candidate List - Student Election Voting System</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -115,9 +128,7 @@ if ($action === 'list') {
     <!-- Navigation -->
     <nav class="navbar">
         <div class="navbar-content">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-vote-yea"></i> Student Election Voting System
-            </a>
+            <a href="dashboard.php" class="navbar-brand">Student Election Voting System</a>
             <ul class="navbar-nav">
                 <li><i class="fa-solid fa-gauge-high"></i> <a href="dashboard.php">Dashboard</a></li>
                 <li><i class="fas fa-users"></i> <a href="candidates.php" class="active">Candidates</a></li>
@@ -161,36 +172,42 @@ if ($action === 'list') {
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Name</th>
                             <th>Position</th>
+                            <th>Name</th>
                             <th>Votes</th>
                             <th>Platform</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($candidates)): ?>
+                        <?php if (empty($candidatesByPosition)): ?>
                             <tr><td colspan="5" class="text-center">No candidates found. <a href="candidates.php?action=add">Add one</a></td></tr>
                         <?php else: ?>
-                            <?php foreach ($candidates as $c): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($c['position']); ?></td>
-                                    <td><?php echo (int)$c['vote_count']; ?></td>
-                                    <td>
-                                        <?php if ($c['platform_pdf']): ?>
-                                            <a href="../<?php echo htmlspecialchars($c['platform_pdf']); ?>" target="_blank" class="btn btn-sm btn-secondary">
-                                                <i class="fa-solid fa-magnifying-glass"></i> View
-                                            </a>
-                                        <?php else: ?>
-                                            <span class="text-muted">No file</span>
+                            <?php foreach ($candidatesByPosition as $position => $candidates): ?>
+                                <?php foreach ($candidates as $index => $c): ?>
+                                    <tr <?php if ($index === 0): ?><?php endif; ?>>
+                                        <?php if ($index === 0): ?>
+                                            <td rowspan="<?php echo count($candidates); ?>" style=" vertical-align: middle; font-weight: bold; background-color: #f8f9fa; width: 200px;">
+                                                <?php echo htmlspecialchars($position); ?>
+                                            </td>
                                         <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <a href="candidates.php?action=edit&id=<?php echo $c['candidate_id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
-                                        <a href="candidates.php?action=delete&id=<?php echo $c['candidate_id']; ?>" onclick="return confirm('Are you sure you want to delete this candidate?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
-                                    </td>
-                                </tr>
+                                        <td><?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?></td>
+                                        <td><?php echo (int)$c['vote_count']; ?></td>
+                                        <td>
+                                            <?php if ($c['platform_pdf']): ?>
+                                                <a href="../<?php echo htmlspecialchars($c['platform_pdf']); ?>" target="_blank" class="btn btn-sm btn-secondary">
+                                                    <i class="fa-solid fa-magnifying-glass"></i> View
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="text-muted">No file</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <a href="candidates.php?action=edit&id=<?php echo $c['candidate_id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                            <a href="candidates.php?action=delete&id=<?php echo $c['candidate_id']; ?>" onclick="return confirm('Are you sure you want to delete this candidate?')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>

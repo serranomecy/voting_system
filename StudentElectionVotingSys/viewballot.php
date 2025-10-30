@@ -46,14 +46,12 @@ try {
 <!-- Navbar -->
 <nav class="navbar">
     <div class="navbar-content" style="display: flex; justify-content: space-between; align-items: center;">
-        <!-- Left Side -->
         <div class="navbar-left" style="display: flex; align-items: center; gap: 8px;">
             <a href="vote.php" class="navbar-brand" style="color: white; text-decoration: none; font-weight: bold;">
                 <i class="fas fa-vote-yea"></i> Student Voting Election System
             </a>
         </div>
 
-        <!-- Right Side -->
         <div class="navbar-user" style="display: flex; align-items: center; gap: 10px;">
             <span style="color: white;">
                 <i class="fas fa-user"></i> 

@@ -1,5 +1,7 @@
 <?php
+
 ob_start();
+
 
 require_once('../vendor/tcpdf/tcpdf.php');
 session_start();
@@ -31,7 +33,7 @@ $pdf->AddPage();
 $pdf->SetFont('helvetica', 'B', 20);
 
 // Title
-$pdf->Cell(0, 10, 'Student Election Voting Results', 0, 1, 'C');
+$pdf->Cell(0, 10, 'Student Election Results', 0, 1, 'C');
 $pdf->Ln(10);
 
 // Get election results from db.php
@@ -73,12 +75,12 @@ while ($row = mysqli_fetch_assoc($result)) {
     $pdf->Cell(30, 8, number_format($percentage, 1) . '%', 1, 1, 'C');
 }
 
-
+// Total votes
 $pdf->Ln(10);
 $pdf->SetFont('helvetica', 'B', 12);
 $pdf->Cell(0, 10, 'Total Votes Cast: ' . $totalVotes, 0, 1, 'C');
 
-
-ob_end_clean(); 
+// Output PDF
+ob_end_clean(); // Clean any output buffer
 $pdf->Output('election_results.pdf', 'D');
 exit();
